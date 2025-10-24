@@ -12,7 +12,8 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' })); // Increased limit for base64 images
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static('public'));
 
 // Types
@@ -24,7 +25,7 @@ interface GenerateImageRequest {
     script: string;
 }
 
-// Route to generate video prompt using AI
+// Route to generate video prompt using AI with automatic model fallback
 app.post('/api/generate-script', async (req: Request<{}, {}, GenerateScriptRequest>, res: Response) => {
     try {
         const { prompt } = req.body;
@@ -35,51 +36,71 @@ app.post('/api/generate-script', async (req: Request<{}, {}, GenerateScriptReque
 
         console.log('Generating image prompt for:', prompt);
 
-        // Try GitHub Models API with your token
+        // Try GitHub Models API with automatic fallback between models
         if (process.env.GITHUB_TOKEN) {
-            try {
-                console.log('Attempting to use GitHub Models API...');
-                const response = await axios.post(
-                    'https://models.inference.ai.azure.com/chat/completions',
-                    {
-                        messages: [
-                            {
-                                role: 'system',
-                                content: prompts.systemPrompt
-                            },
-                            {
-                                role: 'user',
-                                content: prompts.userPromptTemplate(prompt)
+            for (let i = 0; i < aiConfig.models.length; i++) {
+                const model = aiConfig.models[i];
+                try {
+                    console.log(`[ATTEMPT ${i + 1}/${aiConfig.models.length}] Trying model: ${model}...`);
+                    
+                    const response = await axios.post(
+                        'https://models.inference.ai.azure.com/chat/completions',
+                        {
+                            messages: [
+                                {
+                                    role: 'system',
+                                    content: prompts.systemPrompt
+                                },
+                                {
+                                    role: 'user',
+                                    content: prompts.userPromptTemplate(prompt)
+                                }
+                            ],
+                            model: model,
+                            temperature: aiConfig.temperature,
+                            max_tokens: aiConfig.maxTokens
+                        },
+                        {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`
                             }
-                        ],
-                        model: aiConfig.model,
-                        temperature: aiConfig.temperature,
-                        max_tokens: aiConfig.maxTokens
-                    },
-                    {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`
                         }
-                    }
-                );
+                    );
 
-                let script = response.data.choices[0].message.content;
-                // Remove surrounding quotes if AI added them
-                script = script.trim().replace(/^["']|["']$/g, '');
-                console.log('[SUCCESS] GitHub Models API - Generated prompt:', script);
-                res.json({ script });
-                return;
-            } catch (aiError: any) {
-                console.error('[ERROR] GitHub Models API failed:', aiError.response?.data || aiError.message);
-                console.log('[INFO] Falling back to enhanced prompt generator...');
+                    let script = response.data.choices[0].message.content;
+                    // Remove surrounding quotes if AI added them
+                    script = script.trim().replace(/^["']|["']$/g, '');
+                    console.log(`[SUCCESS] Model ${model} - Generated prompt:`, script);
+                    res.json({ script, model: model });
+                    return;
+                    
+                } catch (aiError: any) {
+                    const errorCode = aiError.response?.data?.error?.code;
+                    const errorMessage = aiError.response?.data?.error?.message || aiError.message;
+                    
+                    console.error(`[ERROR] Model ${model} failed:`, errorCode || errorMessage);
+                    
+                    // If rate limit reached, try next model
+                    if (errorCode === 'RateLimitReached') {
+                        console.log(`[INFO] ${model} rate limit reached. Trying next model...`);
+                        continue; // Try next model in the list
+                    } else {
+                        // For other errors, also try next model
+                        console.log(`[INFO] ${model} error. Trying next model...`);
+                        continue;
+                    }
+                }
             }
+            
+            // All models failed, use free fallback
+            console.log('[INFO] All GitHub models exhausted. Using free fallback generator.');
         }
 
-        // Fallback: Enhanced prompt generator
+        // Fallback: Enhanced prompt generator (100% free, unlimited!)
         const script = generateEnhancedPrompt(prompt);
-        console.log('Generated enhanced prompt:', script);
-        res.json({ script });
+        console.log('[FREE FALLBACK] Generated enhanced prompt:', script);
+        res.json({ script, model: 'fallback' });
 
     } catch (error: any) {
         console.error('Error generating prompt:', error.response?.data || error.message);
@@ -90,36 +111,49 @@ app.post('/api/generate-script', async (req: Request<{}, {}, GenerateScriptReque
     }
 });
 
-// Enhanced prompt generator based on story ideas
+// Enhanced prompt generator - completely free, no API needed!
 function generateEnhancedPrompt(userStory: string): string {
     const cleanStory = userStory.trim();
+    const lowerStory = cleanStory.toLowerCase();
     const enhancements = prompts.fallbackEnhancements;
     
-    // Build a detailed prompt from the story
+    // Start with the user's input
     let enhancedPrompt = cleanStory;
     
-    // Add visual quality enhancements if not present
-    const lowerStory = cleanStory.toLowerCase();
+    // Detect art style from user input
+    const hasAnimeStyle = /anime|manga|cartoon|comic/i.test(cleanStory);
+    const hasRealisticStyle = /realistic|photorealistic|photo/i.test(cleanStory);
+    
+    // Add style-specific enhancements
+    if (!hasAnimeStyle && !hasRealisticStyle) {
+        // Default to photorealistic if no style mentioned
+        enhancedPrompt += `, ${enhancements.additional}`;
+    }
     
     // Add lighting if not mentioned
     if (!lowerStory.includes('light') && !lowerStory.includes('glow') && !lowerStory.includes('illuminat')) {
         enhancedPrompt += `, ${enhancements.lighting}`;
     }
     
-    // Add quality descriptors if not present
+    // Add quality descriptors
     if (!lowerStory.includes('quality') && !lowerStory.includes('detailed') && !lowerStory.includes('sharp')) {
         enhancedPrompt += `, ${enhancements.quality}`;
     }
     
-    // Add professional composition
+    // Add composition
     if (!lowerStory.includes('composition') && !lowerStory.includes('framing') && !lowerStory.includes('camera')) {
         enhancedPrompt += `, ${enhancements.style}`;
     }
     
-    // Add photorealistic style if appropriate and not mentioned
-    if (!lowerStory.includes('realistic') && !lowerStory.includes('photorealistic') && 
-        !lowerStory.includes('anime') && !lowerStory.includes('cartoon') && !lowerStory.includes('art style')) {
-        enhancedPrompt += `, ${enhancements.additional}`;
+    // Add atmosphere keywords based on content
+    if (lowerStory.includes('cat') || lowerStory.includes('pet') || lowerStory.includes('animal')) {
+        if (!lowerStory.includes('cute')) enhancedPrompt += ', adorable';
+    }
+    if (lowerStory.includes('space') || lowerStory.includes('galaxy') || lowerStory.includes('cosmic')) {
+        if (!lowerStory.includes('nebula')) enhancedPrompt += ', cosmic nebula, stars';
+    }
+    if (lowerStory.includes('city') || lowerStory.includes('urban')) {
+        if (!lowerStory.includes('neon')) enhancedPrompt += ', urban atmosphere';
     }
     
     return enhancedPrompt;
@@ -181,6 +215,9 @@ app.post('/api/generate-image', async (req: Request<{}, {}, GenerateImageRequest
         console.log('[SUCCESS] Image generated successfully');
         console.log('[INFO] Base64 length:', base64Image.length, 'chars');
 
+        // Send LINE notification after successful generation
+        sendLineNotification('Image Generation Successful');
+
         res.json({ 
             imageUrl: imageDataUrl,
             message: 'Image generated successfully'
@@ -194,6 +231,37 @@ app.post('/api/generate-image', async (req: Request<{}, {}, GenerateImageRequest
         });
     }
 });
+
+// Route to send notification to LINE
+async function sendLineNotification(message: string) {
+    try {
+        const lineToken = '8jt0YZhIRwwikTsJGeKPf704ZqZNWY69FVrgQEuo2DhWH7xx+FXm90Vdu6zFpUcCSW/0x2LjYRhPvQmqAojfi2qKsAHRBq2GOozf65vorNHZUxraqoJaCBukVBFBelm+tM57oVYrTrS/ekom1CcnuQdB04t89/1O/w1cDnyilFU=';
+
+        const payload = {
+            messages: [
+                {
+                    type: 'text',
+                    text: message
+                }
+            ]
+        };
+
+        await axios.post(
+            'https://api.line.me/v2/bot/message/broadcast',
+            payload,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${lineToken}`
+                }
+            }
+        );
+
+        console.log('? LINE notification sent successfully!');
+    } catch (error: any) {
+        console.error('? Error sending LINE notification:', error.response?.data || error.message);
+    }
+}
 
 // Start server
 app.listen(PORT, () => {

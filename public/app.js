@@ -15,6 +15,7 @@ const downloadBtn = document.getElementById('downloadBtn');
 const errorMessage = document.getElementById('errorMessage');
 
 let currentScript = '';
+let currentImageDataUrl = '';
 
 // API Base URL
 const API_BASE = '';
@@ -166,6 +167,9 @@ function displayImage(imageUrl) {
     statusOutput.style.display = 'none';
     videoContainer.style.display = 'block';
     
+    // Store the image data URL for video generation
+    currentImageDataUrl = imageUrl;
+    
     // Make sure the image element is visible and has the src set
     videoPlayer.style.display = 'block';
     videoPlayer.onload = () => {
@@ -180,4 +184,9 @@ function displayImage(imageUrl) {
     downloadBtn.href = imageUrl;
     
     videoContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Initialize - check if user has entered a prompt
+if (promptInput.value.trim()) {
+    nextBtn.disabled = false;
 }

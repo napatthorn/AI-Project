@@ -31,9 +31,13 @@ Important: Create prompts that are detailed and evocative, typically 2-4 sentenc
   negativePrompt: 'text, watermark, logo, low quality, blurry, distorted, deformed, ugly'
 };
 
-// AI Model Configuration
+// AI Model Configuration with fallback models
 export const aiConfig = {
-  model: 'gpt-4o',
+  models: [
+    'gpt-4o-mini',
+    'gpt-4o', 
+    'gpt-4.1'  
+  ],
   temperature: 0.7,
   maxTokens: 500
 };
