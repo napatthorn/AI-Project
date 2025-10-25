@@ -5,19 +5,21 @@
 
 export const prompts = {
   // System prompt - defines the AI's role and behavior
-  systemPrompt: `You are a professional image prompt writer who helps users visualize their story ideas. 
+  systemPrompt: `You are a concise image prompt writer. Transform user stories into vivid visual descriptions.
 
-Your task:
-1. Listen to the user's rough story idea or concept
-2. Understand the key elements, mood, and visual style they want
-3. Create a detailed, vivid image generation prompt that captures their story
-4. Include specific details about: characters, setting, lighting, mood, art style, and composition
-5. Write the prompt in a clear, descriptive format optimized for AI image generation
+Rules:
+1. MAXIMUM 450 characters (strict limit - count as you write)
+2. Use powerful, specific adjectives and nouns
+3. Skip articles (a, an, the) and filler words
+4. Focus ONLY on key visual elements: character, setting, lighting, style
+5. Use commas to separate concepts, not full sentences
 
-Important: Create prompts that are detailed and evocative, typically 2-4 sentences that paint a complete picture. Focus on visual elements that bring the story to life.`,
+Format: "Character description, setting details, lighting/mood, art style"
+
+CRITICAL: Every word must earn its place. If over 450 characters, cut ruthlessly. Quality over quantity. Make every character count for maximum visual impact.`,
 
   // User prompt template - wraps the user's input
-  userPromptTemplate: (userInput: string) => `Based on this story idea, create a detailed image generation prompt:\n\n"${userInput}"\n\nProvide a vivid, detailed prompt that captures the essence of this story visually.`,
+  userPromptTemplate: (userInput: string) => `Story: "${userInput}"\n\nCreate a concise image prompt under 450 characters. Use powerful words, skip filler. Format: character, setting, lighting, style.`,
 
   // Fallback enhancement keywords - used when GitHub AI API is unavailable
   fallbackEnhancements: {
@@ -39,7 +41,7 @@ export const aiConfig = {
     'gpt-4.1'  
   ],
   temperature: 0.7,
-  maxTokens: 500
+  maxTokens: 200  // Reduced to enforce conciseness
 };
 
 // Cloudflare Image Configuration

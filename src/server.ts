@@ -4,6 +4,8 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import { prompts, aiConfig, imageConfig } from './config/prompts';
+import * as fs from 'fs';
+import * as path from 'path';
 
 dotenv.config();
 
@@ -175,11 +177,6 @@ app.post('/api/generate-image', async (req: Request<{}, {}, GenerateImageRequest
             .replace(/[\r\n]+/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
-        
-        if (cleanPrompt.length > 500) {
-            cleanPrompt = cleanPrompt.substring(0, 500).trim();
-            console.log('[WARNING] Prompt truncated to 500 characters');
-        }
         
         console.log('[INFO] Cleaned prompt length:', cleanPrompt.length);
 
