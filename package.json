@@ -1,7 +1,7 @@
 {
   "name": "ai-image-generator",
   "version": "1.0.0",
-  "description": "AI-powered image prompt generation and image creation with Pixverse",
+  "description": "AI-powered image prompt generation and creation using GitHub Models and Cloudflare AI",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
@@ -14,7 +14,8 @@
     "ai",
     "image",
     "generation",
-    "pixverse",
+    "cloudflare",
+    "github-models",
     "typescript"
   ],
   "author": "",

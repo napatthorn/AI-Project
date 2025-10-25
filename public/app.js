@@ -13,12 +13,30 @@ const videoContainer = document.getElementById('videoContainer');
 const videoPlayer = document.getElementById('videoPlayer');
 const downloadBtn = document.getElementById('downloadBtn');
 const errorMessage = document.getElementById('errorMessage');
+const charCount = document.getElementById('charCount');
 
 let currentScript = '';
 let currentImageDataUrl = '';
 
 // API Base URL
 const API_BASE = '';
+
+// Update character counter
+function updateCharacterCount() {
+    const text = scriptOutput.value;
+    const count = text.length;
+    charCount.textContent = count;
+    
+    const counter = document.querySelector('.character-counter');
+    if (count > 500) {
+        counter.classList.add('warning');
+    } else {
+        counter.classList.remove('warning');
+    }
+}
+
+// Add event listener for character counting
+scriptOutput.addEventListener('input', updateCharacterCount);
 
 // Show error message
 function showError(message) {
@@ -95,6 +113,7 @@ generateScriptBtn.addEventListener('click', async () => {
         
         currentScript = data.script;
         scriptOutput.value = currentScript;
+        updateCharacterCount(); // Update counter after setting value
         scriptInfoText.textContent = 'The AI has enhanced your idea with detailed descriptions. Review and edit if needed.';
         scriptCard.style.display = 'block';
         
